@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"github.com/yourusername/yourproject/analyzer/rules"
 	"github.com/yourusername/yourproject/parser"
 	"github.com/yourusername/yourproject/reporter"
 	"github.com/yourusername/yourproject/utils"
@@ -30,6 +31,12 @@ func (a *Analyzer) AnalyzeFile(file string) error {
 	if err != nil {
 		return err
 	}
+
+	ruleSQL := rules.NewRuleSQL(a.reporter)
+	ruleIO := rules.NewRuleIO(a.reporter)
+
+	ruleSQL.Apply(ast)
+	ruleIO.Apply(ast)
 
 	// ...实现分析AST的逻辑，并将结果添加到报告中
 
