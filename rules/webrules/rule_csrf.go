@@ -17,13 +17,13 @@ func NewRuleCSRF(reporter *reporter.Reporter) *RuleCSRF {
 }
 
 // Apply 应用规则并将结果添加到报告中
-func (r *RuleCSRF) Apply(ast *parser.ASTNode) {
+func (r *RuleCSRF) Apply(ast *parser.ast.Node) {
 	r.CheckConditionA(ast)
 	r.CheckConditionB(ast)
 }
 
 // CheckConditionA 检查是否存在未进行CSRF保护的HTTP请求，并报告
-func (r *RuleCSRF) CheckConditionA(ast *parser.ASTNode) {
+func (r *RuleCSRF) CheckConditionA(ast *parser.ast.Node) {
 	// 检查所有HTTP请求
 	httpRequests := ast.FindAll(parser.NodeTypeHTTPRequest)
 	for _, httpRequest := range httpRequests {
@@ -37,7 +37,7 @@ func (r *RuleCSRF) CheckConditionA(ast *parser.ASTNode) {
 }
 
 // CheckConditionB 检查是否存在未进行CSRF保护的HTTP请求，但同时具有危险操作（例如删除，修改等），并报告
-func (r *RuleCSRF) CheckConditionB(ast *parser.ASTNode) {
+func (r *RuleCSRF) CheckConditionB(ast *parser.ast.Node) {
 	// 检查所有HTTP请求
 	httpRequests := ast.FindAll(parser.NodeTypeHTTPRequest)
 	for _, httpRequest := range httpRequests {

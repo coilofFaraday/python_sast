@@ -19,16 +19,16 @@ func NewRuleIO(reporter *reporter.Reporter) *RuleIO {
 }
 
 // Apply 应用规则IO，并将结果添加到报告中
-func (r *RuleIO) Apply(ast *parser.ASTNode) {
+func (r *RuleIO) Apply(ast *parser.ast.Node) {
 	r.CheckConditionA(ast)
 	r.CheckConditionB(ast)
 	r.CheckConditionC(ast)
 }
 
 // CheckConditionA 检查所有使用os、subprocess、multiprocessing模块的函数是否传入了命令参数，并报告
-func (r *RuleIO) CheckConditionA(ast *parser.ASTNode) {
+func (r *RuleIO) CheckConditionA(ast *parser.ast.Node) {
 	// 搜索所有使用os、subprocess、multiprocessing模块的函数调用表达式
-	expressions := ast.SearchExpressions(func(node *parser.ASTNode) bool {
+	expressions := ast.SearchExpressions(func(node *parser.ast.Node) bool {
 		if node.Type == parser.ExpressionTypeCall {
 			function := node.Children[0]
 			if function.TokenLiteral() == "os.system" || function.TokenLiteral() == "subprocess.call" || function.TokenLiteral() == "multiprocessing.Process" {
@@ -55,9 +55,9 @@ func (r *RuleIO) CheckConditionA(ast *parser.ASTNode) {
 }
 
 // CheckConditionB 检查所有使用shutil、os模块的函数是否调用了rm、rmdir、remove、unlink等删除文件/目录的函数，并报告
-func (r *RuleIO) CheckConditionB(ast *parser.ASTNode) {
+func (r *RuleIO) CheckConditionB(ast *parser.ast.Node) {
 	// 搜索所有使用shutil、os模块的函数调用表达式
-	expressions := ast.SearchExpressions(func(node *parser.ASTNode) bool {
+	expressions := ast.SearchExpressions(func(node *parser.ast.Node) bool {
 		if node.Type == parser.ExpressionTypeCall {
 			function := node.Children[0]
 			if function.TokenLiteral() == "shutil.rmtree" || function.TokenLiteral() == "os.remove" || function.TokenLiteral() == "os.rmdir" || function.TokenLiteral() == "os.unlink" {
@@ -74,7 +74,7 @@ func (r *RuleIO) CheckConditionB(ast *parser.ASTNode) {
 }
 
 // CheckConditionC 检查所有使用open函数打开文件的函数是否使用了完整的文件路径，防止访问意外文件，并报告
-func (r *RuleIO) CheckConditionC(ast *parser.ASTNode) {
+func (r *RuleIO) CheckConditionC(ast *parser.ast.Node) {
 	for _, node := range ast.Children {
 		switch n := node.(type) {
 		case *parser.FunctionDef:

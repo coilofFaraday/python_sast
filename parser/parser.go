@@ -1,10 +1,11 @@
-package parse
+package parser
 
 //修改：
 // 统一处理错误
 import (
 	"errors"
 	"fmt"
+	"go/ast"
 
 	"github.com/coiloffaraday/python_sast/lexer"
 )
@@ -21,7 +22,7 @@ func NewParser(tokens []lexer.Token) *Parser {
 	}
 }
 
-func (p *Parser) Parse() (*ASTNode, error) {
+func (p *Parser) Parse() (*ast.Node, error) {
 	// 实现递归下降解析的入口点
 	ast, err := p.parseStatement()
 	if err != nil {
@@ -30,7 +31,7 @@ func (p *Parser) Parse() (*ASTNode, error) {
 	return ast, nil
 }
 
-func (p *Parser) parseStatement() (*ASTNode, error) {
+func (p *Parser) parseStatement() (*ast.Node, error) {
 	token := p.tokens[p.current]
 
 	switch token.Type {
@@ -95,17 +96,17 @@ func (p *Parser) consume(tokenType lexer.TokenType, tokenValue string) (lexer.To
 	return lexer.Token{}, fmt.Errorf("expected %s with value '%s', got %s with value '%s'", tokenType, tokenValue, token.Type, token.Value)
 }
 
-func (p *Parser) parseBlockStatement() (*ASTNode, error) {
+func (p *Parser) parseBlockStatement() (*ast.Node, error) {
 	// 解析代码块
 	err := p.expectToken(LBRACE)
 	if err != nil {
 		return nil, err
 	}
 
-	node := &ASTNode{
+	node := &ast.Node{
 		Type:     NodeStatementList,
 		Token:    p.currentToken,
-		Children: []*ASTNode{},
+		Children: []*ast.Node{},
 	}
 
 	for p.currentToken.Type != RBRACE {
@@ -125,7 +126,7 @@ func (p *Parser) parseBlockStatement() (*ASTNode, error) {
 }
 
 // 关键字函数
-func (p *Parser) parseFunctionDefinition() (*ASTNode, error) {
+func (p *Parser) parseFunctionDefinition() (*ast.Node, error) {
 	// 消耗 "def" 关键字
 	p.consume(lexer.Keyword, "def")
 
@@ -156,7 +157,7 @@ func (p *Parser) parseFunctionDefinition() (*ASTNode, error) {
 		return nil, err
 	}
 
-	return &ASTNode{
+	return &ast.Node{
 		Type: FunctionDefinition,
 		Value: &FunctionDefinitionNode{
 			Name:       nameToken.Value,
@@ -166,14 +167,14 @@ func (p *Parser) parseFunctionDefinition() (*ASTNode, error) {
 	}, nil
 }
 
-func (p *Parser) parseClassDefinition() (*ASTNode, error) {
+func (p *Parser) parseClassDefinition() (*ast.Node, error) {
 	// 解析类定义
 	err := p.expectToken(CLASS)
 	if err != nil {
 		return nil, err
 	}
 
-	className := &ASTNode{
+	className := &ast.Node{
 		Type:  NodeIdentifier,
 		Token: p.currentToken,
 	}
@@ -184,7 +185,7 @@ func (p *Parser) parseClassDefinition() (*ASTNode, error) {
 		return nil, err
 	}
 
-	methods := []*ASTNode{}
+	methods := []*ast.Node{}
 	for p.currentToken.Type != RBRACE {
 		method, err := p.parseFunctionDefinition()
 		if err != nil {
@@ -198,19 +199,19 @@ func (p *Parser) parseClassDefinition() (*ASTNode, error) {
 		return nil, err
 	}
 
-	return &ASTNode{
+	return &ast.Node{
 		Type:     NodeClassDefinition,
 		Token:    className.Token,
 		Children: methods,
 	}, nil
 }
 
-func (p *Parser) parseIfStatement() (*ASTNode, error) {
+func (p *Parser) parseIfStatement() (*ast.Node, error) {
 	// 解析 if 语句
-	node := &ASTNode{
+	node := &ast.Node{
 		Type:     NodeCallExpression,
 		Token:    p.currentToken,
-		Children: []*ASTNode{},
+		Children: []*ast.Node{},
 	}
 
 	// 解析 if 子句
@@ -250,7 +251,7 @@ func (p *Parser) parseIfStatement() (*ASTNode, error) {
 	return node, nil
 }
 
-func (p *Parser) parseElseStatement() (*ASTNode, error) {
+func (p *Parser) parseElseStatement() (*ast.Node, error) {
 	// 解析else语句
 	err := p.expectToken(ELSE)
 	if err != nil {
@@ -265,7 +266,7 @@ func (p *Parser) parseElseStatement() (*ASTNode, error) {
 	return body, nil
 }
 
-func (p *Parser) parseForStatement() (*ASTNode, error) {
+func (p *Parser) parseForStatement() (*ast.Node, error) {
 	// 解析for循环语句
 	err := p.expectToken(FOR)
 	if err != nil {
@@ -305,9 +306,9 @@ func (p *Parser) parseForStatement() (*ASTNode, error) {
 	}
 
 	// 创建for循环语句节点
-	node := &ASTNode{
+	node := &ast.Node{
 		Type: NodeStatementList,
-		Children: []*ASTNode{
+		Children: []*ast.Node{
 			initStmt,
 			condition,
 			updateStmt,
@@ -318,9 +319,9 @@ func (p *Parser) parseForStatement() (*ASTNode, error) {
 	return node, nil
 }
 
-func (p *Parser) parseWhileStatement() (*ASTNode, error) {
+func (p *Parser) parseWhileStatement() (*ast.Node, error) {
 	// 解析while循环语句
-	node := &ASTNode{
+	node := &ast.Node{
 		Type:  NodeWhileStatement,
 		Token: p.currentToken,
 	}
@@ -352,7 +353,7 @@ func (p *Parser) parseWhileStatement() (*ASTNode, error) {
 	return node, nil
 }
 
-func (p *Parser) parseReturnStatement() (*ASTNode, error) {
+func (p *Parser) parseReturnStatement() (*ast.Node, error) {
 	// 跳过 `return` 关键字
 	p.current++
 
@@ -361,16 +362,16 @@ func (p *Parser) parseReturnStatement() (*ASTNode, error) {
 		return nil, err
 	}
 
-	return &ASTNode{
+	return &ast.Node{
 		Type:  ReturnStatement,
 		Value: "return",
-		Children: []*ASTNode{
+		Children: []*ast.Node{
 			expr,
 		},
 	}, nil
 }
 
-func (p *Parser) parseInStatement(left *ASTNode) (*ASTNode, error) {
+func (p *Parser) parseInStatement(left *ast.Node) (*ast.Node, error) {
 	p.consumeToken(lexer.Operator, "in")
 
 	right, err := p.parseExpression()
@@ -378,26 +379,26 @@ func (p *Parser) parseInStatement(left *ASTNode) (*ASTNode, error) {
 		return nil, err
 	}
 
-	return &ASTNode{
+	return &ast.Node{
 		Type:     ASTIn,
 		Value:    "in",
-		Children: []*ASTNode{left, right},
+		Children: []*ast.Node{left, right},
 	}, nil
 }
 
-func (p *Parser) parseTrueStatement() (*ASTNode, error) {
+func (p *Parser) parseTrueStatement() (*ast.Node, error) {
 	if p.tokens[p.current].Value != "True" {
 		return nil, errors.New("unexpected token")
 	}
 
 	p.current++
-	return &ASTNode{
+	return &ast.Node{
 		Type:  True,
 		Value: "True",
 	}, nil
 }
 
-func (p *Parser) parseFalseStatement() (*ASTNode, error) {
+func (p *Parser) parseFalseStatement() (*ast.Node, error) {
 	// 解析 `False`
 	token := p.tokens[p.current]
 	if token.Type != lexer.Keyword || token.Value != "False" {
@@ -405,13 +406,13 @@ func (p *Parser) parseFalseStatement() (*ASTNode, error) {
 	}
 	p.current++
 
-	return &ASTNode{
+	return &ast.Node{
 		Type:  BooleanLiteral,
 		Value: "False",
 	}, nil
 }
 
-func (p *Parser) parseNoneStatement() (*ASTNode, error) {
+func (p *Parser) parseNoneStatement() (*ast.Node, error) {
 	// 检查当前Token是否是NoneLiteral
 	token := p.tokens[p.current]
 	if token.Type != lexer.NoneLiteral {
@@ -420,11 +421,11 @@ func (p *Parser) parseNoneStatement() (*ASTNode, error) {
 
 	p.current++ // 跳过NoneLiteral
 
-	// 创建ASTNode
-	return NewASTNode(NoneLiteral, "None"), nil
+	// 创建ast.Node
+	return Newast.Node(NoneLiteral, "None"), nil
 }
 
-func (p *Parser) parseAndStatement() (*ASTNode, error) {
+func (p *Parser) parseAndStatement() (*ast.Node, error) {
 	left, err := p.parseComparison()
 	if err != nil {
 		return nil, err
@@ -444,14 +445,14 @@ func (p *Parser) parseAndStatement() (*ASTNode, error) {
 	}
 
 	// 构建AST节点
-	return &ASTNode{
+	return &ast.Node{
 		Type:  AndStatement,
 		Left:  left,
 		Right: right,
 	}, nil
 }
 
-func (p *Parser) parseOrStatement() (*ASTNode, error) {
+func (p *Parser) parseOrStatement() (*ast.Node, error) {
 	leftNode, err := p.parseAndStatement()
 	if err != nil {
 		return nil, err
@@ -465,13 +466,13 @@ func (p *Parser) parseOrStatement() (*ASTNode, error) {
 			return nil, err
 		}
 
-		leftNode = NewASTNode(OrExpression, operator, leftNode, rightNode)
+		leftNode = Newast.Node(OrExpression, operator, leftNode, rightNode)
 	}
 
 	return leftNode, nil
 }
 
-func (p *Parser) parseNotStatement() (*ASTNode, error) {
+func (p *Parser) parseNotStatement() (*ast.Node, error) {
 	token := p.tokens[p.current]
 	if token.Type != lexer.Operator || token.Value != "not" {
 		return nil, fmt.Errorf("unexpected token: %s", token.Value)
@@ -483,13 +484,13 @@ func (p *Parser) parseNotStatement() (*ASTNode, error) {
 		return nil, err
 	}
 
-	return &ASTNode{
+	return &ast.Node{
 		Type:     ASTNotNode,
-		Children: []*ASTNode{expr},
+		Children: []*ast.Node{expr},
 	}, nil
 }
 
-func (p *Parser) parseIsStatement() (*ASTNode, error) {
+func (p *Parser) parseIsStatement() (*ast.Node, error) {
 	// 读取 is 左边的表达式
 	expr1, err := p.parseExpression()
 	if err != nil {
@@ -510,20 +511,20 @@ func (p *Parser) parseIsStatement() (*ASTNode, error) {
 	}
 
 	// 生成 AST 节点
-	return &ASTNode{
+	return &ast.Node{
 		Type:     IsStatement,
 		Operator: "is",
-		Children: []*ASTNode{expr1, expr2},
+		Children: []*ast.Node{expr1, expr2},
 	}, nil
 }
 
-func (p *Parser) parseIdentifierStatement() (*ASTNode, error) {
+func (p *Parser) parseIdentifierStatement() (*ast.Node, error) {
 	token := p.tokens[p.current]
 	p.current++
 
 	if p.current >= len(p.tokens) {
-		// 如果是最后一个Token，直接返回该Token对应的ASTNode
-		return NewASTNode(Identifier, token.Value, token.Pos), nil
+		// 如果是最后一个Token，直接返回该Token对应的ast.Node
+		return Newast.Node(Identifier, token.Value, token.Pos), nil
 	}
 
 	switch p.tokens[p.current].Type {
@@ -534,7 +535,7 @@ func (p *Parser) parseIdentifierStatement() (*ASTNode, error) {
 		if err != nil {
 			return nil, err
 		}
-		return NewASTNode(AssignmentStatement, token.Value, token.Pos, expr), nil
+		return Newast.Node(AssignmentStatement, token.Value, token.Pos, expr), nil
 	case lexer.Delimiter:
 		switch p.tokens[p.current].Value {
 		case "(":
@@ -544,7 +545,7 @@ func (p *Parser) parseIdentifierStatement() (*ASTNode, error) {
 			if err != nil {
 				return nil, err
 			}
-			return NewASTNode(FunctionCall, token.Value, token.Pos, args), nil
+			return Newast.Node(FunctionCall, token.Value, token.Pos, args), nil
 		default:
 			// 其他情况暂不处理
 			break
@@ -555,33 +556,33 @@ func (p *Parser) parseIdentifierStatement() (*ASTNode, error) {
 	}
 
 	// 如果没有下一个Token，或者下一个Token不是运算符或左括号，那么表示这是一个变量引用
-	return NewASTNode(Identifier, token.Value, token.Pos), nil
+	return Newast.Node(Identifier, token.Value, token.Pos), nil
 }
 
-func (p *Parser) parseStringLiteralStatement() (*ASTNode, error) {
+func (p *Parser) parseStringLiteralStatement() (*ast.Node, error) {
 	token := p.tokens[p.current]
 	p.current++
 
-	return NewASTNode(StringLiteral, token.Value, token.Pos), nil
+	return Newast.Node(StringLiteral, token.Value, token.Pos), nil
 }
 
-func (p *Parser) parseNumberLiteralStatement() (*ASTNode, error) {
+func (p *Parser) parseNumberLiteralStatement() (*ast.Node, error) {
 	token := p.tokens[p.current]
 	p.current++
 
-	return NewASTNode(NumberLiteral, token.Value, token.Pos), nil
+	return Newast.Node(NumberLiteral, token.Value, token.Pos), nil
 }
 
-func (p *Parser) parseBooleanLiteralStatement() (*ASTNode, error) {
+func (p *Parser) parseBooleanLiteralStatement() (*ast.Node, error) {
 	token := p.tokens[p.current]
 	p.current++
 
-	return NewASTNode(BooleanLiteral, token.Value, token.Pos), nil
+	return Newast.Node(BooleanLiteral, token.Value, token.Pos), nil
 }
 
-func (p *Parser) parseNoneLiteralStatement() (*ASTNode, error) {
+func (p *Parser) parseNoneLiteralStatement() (*ast.Node, error) {
 	token := p.tokens[p.current]
 	p.current++
 
-	return NewASTNode(NoneLiteral, token.Value, token.Pos), nil
+	return Newast.Node(NoneLiteral, token.Value, token.Pos), nil
 }

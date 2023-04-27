@@ -1,4 +1,4 @@
-package ast
+package parser
 
 // Node 接口表示抽象语法树中的一个节点
 type Node interface {

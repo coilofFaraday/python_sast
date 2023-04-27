@@ -76,16 +76,16 @@ func EscapeString(s string) string {
 	return builder.String()
 }
 
-// DeepCopyASTNode 创建并返回一个新的ASTNode，它是原始节点的深度拷贝
-func DeepCopyASTNode(node *ASTNode) *ASTNode {
-	// ...实现深度拷贝逻辑
-}
+// DeepCopyast.Node 创建并返回一个新的ast.Node，它是原始节点的深度拷贝
+//func DeepCopyast.Node(node *ast.Node) *ast.Node {
+// ...实现深度拷贝逻辑
+//}
 
-// TraverseASTNode 遍历给定的AST节点（以及其子节点），对每个节点调用指定的回调函数
-func TraverseASTNode(node *ASTNode, callback func(*ASTNode)) {
-	callback(node)
-	// ...实现递归遍历逻辑
-}
+// Traverseast.Node 遍历给定的AST节点（以及其子节点），对每个节点调用指定的回调函数
+//func Traverseast.Node(node *ast.Node, callback func(*ast.Node)) {
+//	callback(node)
+// ...实现递归遍历逻辑
+//}
 
 func GetAllPythonFiles(dirPath string) ([]string, error) {
 	var filePaths []string

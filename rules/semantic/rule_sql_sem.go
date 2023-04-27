@@ -15,11 +15,11 @@ func NewRuleSQLInjection(reporter *reporter.Reporter) *RuleSQLInjection {
 	}
 }
 
-func (r *RuleSQLInjection) Apply(ast *parser.ASTNode) {
+func (r *RuleSQLInjection) Apply(ast *parser.ast.Node) {
 	r.CheckSQLInjection(ast)
 }
 
-func (r *RuleSQLInjection) CheckSQLInjection(ast *parser.ASTNode) {
+func (r *RuleSQLInjection) CheckSQLInjection(ast *parser.ast.Node) {
 	for _, node := range ast.Children {
 		if node.Type == parser.NodeTypeFunctionCall {
 			functionNameNode := node.Children[0]
@@ -52,7 +52,7 @@ func isSQLInjectionFunction(functionName string) bool {
 	return false
 }
 
-func isUserInput(node *parser.ASTNode) bool {
+func isUserInput(node *parser.ast.Node) bool {
 	// 检查节点类型是否为字符串字面量
 	if node.Type == parser.StringLiteral {
 		// 检查节点的父节点是否为函数调用

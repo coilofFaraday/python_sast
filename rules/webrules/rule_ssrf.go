@@ -21,12 +21,12 @@ func NewRuleSSRF(reporter *reporter.Reporter) *RuleSSRF {
 }
 
 // Apply 应用规则，并将结果添加到报告中
-func (r *RuleSSRF) Apply(ast *parser.ASTNode) {
+func (r *RuleSSRF) Apply(ast *parser.ast.Node) {
 	r.CheckCondition(ast)
 }
 
 // CheckCondition 检查SSRF的存在并报告
-func (r *RuleSSRF) CheckCondition(ast *parser.ASTNode) {
+func (r *RuleSSRF) CheckCondition(ast *parser.ast.Node) {
 	urlNodes := ast.FindAll(parser.NodeTypeURL)
 
 	for _, node := range urlNodes {

@@ -19,7 +19,7 @@ func init() {
 func main() {
 	flag.Parse()
 
-	if inputFile == "" {
+	if inputPath == "" {
 		fmt.Println("Error: No input file provided.")
 		flag.Usage()
 		os.Exit(1)

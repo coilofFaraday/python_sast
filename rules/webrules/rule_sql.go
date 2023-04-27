@@ -22,7 +22,7 @@ func NewRuleSQL(reporter *reporter.Reporter) *RuleSQL {
 }
 
 // Apply 应用规则SQL，并将结果添加到报告中
-func (r *RuleSQL) Apply(ast *parser.ASTNode) {
+func (r *RuleSQL) Apply(ast *parser.ast.Node) {
 	r.CheckConditionA(ast)
 	r.CheckConditionB(ast)
 	r.CheckConditionC(ast)
@@ -30,7 +30,7 @@ func (r *RuleSQL) Apply(ast *parser.ASTNode) {
 }
 
 // CheckConditionA 检查是否存在 SQL 注入风险
-func (r *RuleSQL) CheckConditionA(ast *parser.ASTNode) {
+func (r *RuleSQL) CheckConditionA(ast *parser.ast.Node) {
 	for _, node := range ast.Nodes {
 		switch n := node.(type) {
 		case *parser.CallExpression:
@@ -51,7 +51,7 @@ func (r *RuleSQL) CheckConditionA(ast *parser.ASTNode) {
 }
 
 // CheckConditionC 检查弱口令漏洞
-func (r *RuleSQL) CheckConditionB(ast *parser.ASTNode) {
+func (r *RuleSQL) CheckConditionB(ast *parser.ast.Node) {
 	if ast.Type == parser.SQLNode {
 		sqlStatement := ast.Value
 
@@ -83,7 +83,7 @@ func (r *RuleSQL) CheckConditionB(ast *parser.ASTNode) {
 }
 
 // CheckConditionC 检查常见的 SQL 注入漏洞
-func (r *RuleSQL) CheckConditionC(ast *parser.ASTNode) {
+func (r *RuleSQL) CheckConditionC(ast *parser.ast.Node) {
 	// 检查 Select 语句中的注入漏洞
 	selectStmts := ast.FindAll(parser.NodeTypeSelectStmt)
 	for _, stmt := range selectStmts {
@@ -121,7 +121,7 @@ func (r *RuleSQL) CheckConditionC(ast *parser.ASTNode) {
 }
 
 // CheckConditionD 检查 SQL 注入防御措施
-func (r *RuleSQL) CheckConditionD(ast *parser.ASTNode) {
+func (r *RuleSQL) CheckConditionD(ast *parser.ast.Node) {
 	// 检查是否使用了参数化查询，如使用了，即视为通过了 SQL 注入防御
 	hasParameterizedQuery := false
 	ast.Walk(func(n parser.Node, depth int) bool {

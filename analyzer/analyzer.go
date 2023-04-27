@@ -3,6 +3,7 @@ package analyzer
 import (
 	"fmt"
 
+	"github.com/coiloffaraday/python_sast/lexer"
 	"github.com/coiloffaraday/python_sast/parser"
 	"github.com/coiloffaraday/python_sast/reporter"
 	"github.com/coiloffaraday/python_sast/rules"
@@ -33,7 +34,7 @@ func (a *Analyzer) AnalyzeFile(file string) error {
 		return err
 	}
 
-	lexer := parser.NewLexer(source)
+	lexer := lexer.NewLexer(source)
 	parser := parser.NewParser(lexer)
 	ast, err := parser.Parse()
 	if err != nil {

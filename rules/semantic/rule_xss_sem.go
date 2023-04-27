@@ -17,12 +17,12 @@ func NewRuleXSSSemantic(reporter *reporter.Reporter) *RuleXSSSemantic {
 }
 
 // Apply 应用规则并将结果添加到报告中
-func (r *RuleXSSSemantic) Apply(ast *parser.ASTNode) {
+func (r *RuleXSSSemantic) Apply(ast *parser.ast.Node) {
 	r.checkForXSS(ast)
 }
 
 // checkForXSS 使用语义分析检查XSS漏洞并将结果添加到报告中
-func (r *RuleXSS) checkForXSS(node *parser.ASTNode) {
+func (r *RuleXSS) checkForXSS(node *parser.ast.Node) {
 	// 找到所有与输出相关的节点，例如函数调用和变量赋值语句
 	outputNodes := node.FindAll(parser.NodeTypeFunctionCall, parser.NodeTypeAssignment)
 
