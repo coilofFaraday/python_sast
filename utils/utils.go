@@ -1,11 +1,12 @@
 package utils
 
 import (
+	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
-	"fmt"
 )
 
 // ReadFile 读取文件并返回其内容
@@ -84,4 +85,26 @@ func DeepCopyASTNode(node *ASTNode) *ASTNode {
 func TraverseASTNode(node *ASTNode, callback func(*ASTNode)) {
 	callback(node)
 	// ...实现递归遍历逻辑
+}
+
+func GetAllPythonFiles(dirPath string) ([]string, error) {
+	var filePaths []string
+
+	err := filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() && filepath.Ext(path) == ".py" {
+			filePaths = append(filePaths, path)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return filePaths, nil
 }

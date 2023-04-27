@@ -7,12 +7,13 @@ import (
 	"os"
 
 	"github.com/coiloffaraday/python_sast/analyzer"
+	"github.com/yourusername/yourproject/utils"
 )
 
-var inputFile string
+var inputPath string
 
 func init() {
-	flag.StringVar(&inputFile, "input", "", "Path to the Python source file to be analyzed.")
+	flag.StringVar(&inputPath, "input", "", "Path to the Python source directory or file to be analyzed.")
 }
 
 func main() {
@@ -33,7 +34,24 @@ func main() {
 
 	// 实例化分析器并分析输入文件
 	ana := analyzer.NewAnalyzer(config)
-	err = ana.AnalyzeFile(inputFile)
+	var filePaths []string
+
+	if info, err := os.Stat(inputPath); err == nil && info.IsDir() {
+		filePaths, err = utils.GetAllPythonFiles(inputPath)
+		if err != nil {
+			fmt.Printf("Error getting Python files from directory: %v\n", err)
+			os.Exit(2)
+		}
+	} else {
+		filePaths = []string{inputPath}
+	}
+
+	err := ana.AnalyzeFiles(filePaths)
+	if err != nil {
+		fmt.Printf("Error analyzing files: %v\n", err)
+		os.Exit(2)
+	}
+
 	if err != nil {
 		fmt.Printf("Error analyzing file: %v\n", err)
 		os.Exit(2)
@@ -71,6 +89,16 @@ func displayHelp() {
 	fmt.Println("Usage: python-sast -input <path/to/python/file>")
 	fmt.Println("Options:")
 	flag.PrintDefaults()
+}
+
+func (a *Analyzer) AnalyzeFiles(filePaths []string) error {
+	for _, filePath := range filePaths {
+		err := a.AnalyzeFile(filePath)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ...更多扩展功能函数

@@ -1,8 +1,8 @@
 package rules
 
 import (
-	"github.com/yourusername/yourproject/parser"
-	"github.com/yourusername/yourproject/reporter"
+	"github.com/coiloffaraday/python_sast/parser"
+	"github.com/coiloffaraday/python_sast/reporter"
 )
 
 type RuleCSRF struct {

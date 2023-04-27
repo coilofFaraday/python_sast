@@ -1,17 +1,16 @@
 package analyzer
 
 import (
-	"encoding/json"
-	"io/ioutil"
+	"fmt"
 
 	"github.com/yourusername/yourproject/parser"
 	"github.com/yourusername/yourproject/reporter"
-	"github.com/yourusername/yourproject/utils"
+	"github.com/yourusername/yourproject/rules"
+	"main.go/utils"
 )
 
 type Config struct {
-	Rules       []string `json:"rules"`
-	MaxFileSize int      `json:"max_file_size"`
+	Rules []string `json:"rules"`
 }
 
 type Analyzer struct {
@@ -19,62 +18,16 @@ type Analyzer struct {
 	config   *Config
 }
 
-// Rule 接口表示一个静态分析规则
-type Rule interface {
-	Apply(file string, ast *parser.ASTNode, reporter *reporter.Reporter)
-}
-
 // NewAnalyzer 创建并返回一个新的Analyzer实例
-func NewAnalyzer(configFile string) (*Analyzer, error) {
-	configData, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		return nil, err
-	}
-
-	var config Config
-	err = json.Unmarshal(configData, &config)
-	if err != nil {
-		return nil, err
-	}
-
-	rules, err := loadRules(config.Rules)
-	if err != nil {
-		return nil, err
-	}
-
+func NewAnalyzer(config *Config) *Analyzer {
 	return &Analyzer{
 		reporter: reporter.NewReporter(),
-		rules:    rules,
-	}, nil
-}
-
-// loadRules 加载并初始化指定的规则
-func loadRules(ruleConfigs []RuleConfig) ([]Rule, error) {
-	rules := []Rule{}
-
-	for _, ruleConfig := range ruleConfigs {
-		// TODO: 根据 ruleConfig.File 加载并初始化相应的规则实现
-		// rule := ...
-		// rules = append(rules, rule)
+		config:   config,
 	}
-
-	return rules, nil
 }
 
-// AnalyzeFiles 分析指定的文件列表并将结果添加到报告中
-func (a *Analyzer) AnalyzeFiles(files []string) error {
-	for _, file := range files {
-		err := a.analyzeFile(file)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// analyzeFile 分析指定文件并将结果添加到报告中
-func (a *Analyzer) analyzeFile(file string) error {
+// AnalyzeFile 分析指定文件并将结果添加到报告中
+func (a *Analyzer) AnalyzeFile(file string) error {
 	source, err := utils.ReadFile(file)
 	if err != nil {
 		return err
@@ -87,9 +40,23 @@ func (a *Analyzer) analyzeFile(file string) error {
 		return err
 	}
 
-	for _, rule := range a.rules {
-		rule.Apply(file, ast, a.reporter)
+	for _, ruleName := range a.config.Rules {
+		switch ruleName {
+		case "RuleSQL":
+			ruleSQL := rules.NewRuleSQL(a.reporter)
+			ruleSQL.Apply(ast)
+		case "RuleIO":
+			ruleIO := rules.NewRuleIO(a.reporter)
+			ruleIO.Apply(ast)
+		case "RuleCSRF":
+			ruleCSRF := rules.NewRuleCSRF(a.reporter)
+			ruleCSRF.Apply(ast)
+		default:
+			fmt.Printf("Warning: Unknown rule '%s' specified in config.\n", ruleName)
+		}
 	}
+
+	// ...实现分析AST的逻辑，并将结果添加到报告中
 
 	return nil
 }
