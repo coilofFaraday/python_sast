@@ -33,7 +33,7 @@ func (r *RuleXSS) CheckConditionA(ast *parser.ast.Node) {
 	re := regexp.MustCompile(`(?i)<[^>]*?\s(on\w+)=["']?([^"'>]+)["']?`)
 	nodes := ast.FindAll(parser.NodeTypeElement)
 	for _, node := range nodes {
-		if !strings.HasPrefix(node.TokenLiteral(), "<script") && !strings.HasPrefix(node.TokenLiteral(), "<style") {
+		if !strings.HasPrefix(node.token.TokenLiteral(), "<script") && !strings.HasPrefix(node.token.TokenLiteral(), "<style") {
 			for _, attr := range node.Attributes {
 				if re.MatchString(attr.Value) {
 					r.reporter.AddIssue(ast.FilePath, node.Line, "Possible XSS vulnerability in attribute '"+attr.Key+"'")
@@ -51,8 +51,8 @@ func (r *RuleXSS) CheckConditionB(ast *parser.ast.Node) {
 	re := regexp.MustCompile(`(?i)\b(eval|setInterval|setTimeout|document\.write|document\.writeln|document\.innerhtml|window\.location)\b`)
 	nodes := ast.FindAll(parser.NodeTypeScript)
 	for _, node := range nodes {
-		if re.MatchString(node.TokenLiteral()) {
-			r.reporter.AddIssue(ast.FilePath, node.Line, "Possible XSS vulnerability in script: "+node.TokenLiteral())
+		if re.MatchString(node.token.TokenLiteral()) {
+			r.reporter.AddIssue(ast.FilePath, node.Line, "Possible XSS vulnerability in script: "+node.token.TokenLiteral())
 		}
 	}
 }

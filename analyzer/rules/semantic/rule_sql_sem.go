@@ -24,11 +24,11 @@ func (r *RuleSQLInjection) CheckSQLInjection(ast *parser.ast.Node) {
 		if node.Type == parser.NodeTypeFunctionCall {
 			functionNameNode := node.Children[0]
 			if functionNameNode.Type == parser.NodeTypeIdentifier {
-				functionName := functionNameNode.TokenLiteral()
+				functionName := functionNameNode.token.TokenLiteral()
 				if isSQLInjectionFunction(functionName) {
 					argumentNode := node.Children[1]
 					if argumentNode.Type == parser.NodeTypeStringLiteral {
-						if isUserInput(argumentNode.TokenLiteral()) {
+						if isUserInput(argumentNode.token.TokenLiteral()) {
 							r.reporter.AddIssue(ast.FilePath, argumentNode.Line, "Possible SQL injection vulnerability")
 						}
 					}
@@ -60,7 +60,7 @@ func isUserInput(node *parser.ast.Node) bool {
 		if parent.Type == parser.CallExpression {
 			// 检查函数名是否为预定义的输入函数，如get/post/cookie等
 			function := parent.Children[0]
-			if function.TokenLiteral() == "get" || function.TokenLiteral() == "post" || function.TokenLiteral() == "cookie" {
+			if function.token.TokenLiteral() == "get" || function.token.TokenLiteral() == "post" || function.token.TokenLiteral() == "cookie" {
 				return true
 			}
 		}

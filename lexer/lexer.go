@@ -1,214 +1,139 @@
 package lexer
 
-import (
-	"fmt"
-	"strings"
-)
+import "github.com/coiloffaraday/python_sast/token"
 
-// TokenType 表示Token的类型
-type TokenType int
-
-const (
-	// Keyword 关键字
-	Keyword TokenType = iota
-	// Identifier 标识符
-	Identifier
-	// Operator 运算符
-	Operator
-	// Delimiter 分隔符
-	Delimiter
-	// StringLiteral 字符串字面量
-	StringLiteral
-	// NumberLiteral 数字字面量
-	NumberLiteral
-	// BooleanLiteral 布尔字面量
-	BooleanLiteral
-	// NoneLiteral None字面量
-	NoneLiteral
-	// EOF 文件结束标志
-	EOF
-)
-
-// Token 代表代码中的单个词法单元
-type Token struct {
-	Type  TokenType // 类型
-	Value string    // 值
-	Pos   int       // 位置
-}
-
-// Lexer 代表词法分析器
 type Lexer struct {
-	input  string // 输入的代码
-	tokens []Token
-	pos    int // 当前分析的位置
+	input        string
+	position     int
+	readPosition int
+	ch           byte
 }
 
-// NewLexer 创建一个新的Lexer实例
-func NewLexer(input string) *Lexer {
-	return &Lexer{
-		input:  input,
-		tokens: []Token{},
-		pos:    0,
+func New(input string) *Lexer {
+	l := &Lexer{input: input}
+	l.readChar()
+	return l
+}
+
+func (l *Lexer) readChar() {
+	if l.readPosition >= len(l.input) {
+		l.ch = 0
+	} else {
+		l.ch = l.input[l.readPosition]
 	}
+	l.position = l.readPosition
+	l.readPosition++
 }
 
-// NextToken 读取并返回下一个Token
-func (l *Lexer) NextToken() Token {
-	for l.pos < len(l.input) {
-		c := l.input[l.pos]
+func (l *Lexer) NextToken() token.Token {
+	var tok token.Token
 
-		if isSpace(c) {
-			l.skipSpace()
-			continue
+	l.skipWhitespace()
+
+	switch l.ch {
+	case '=':
+		if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			literal := string(ch) + string(l.ch)
+			tok = token.Token{Type: token.EQ, Literal: literal}
+		} else {
+			tok = newToken(token.ASSIGN, l.ch)
 		}
-
-		if isLetter(c) {
-			return l.readIdentifierOrKeyword()
-		}
-
-		if isDigit(c) {
-			return l.readNumberLiteral()
-		}
-
-		if c == '"' {
-			return l.readStringLiteral()
-		}
-
-		if isOperator(c) {
-			return l.readOperator()
-		}
-
-		if isDelimiter(c) {
-			return l.readDelimiter()
-		}
-
-		panic(fmt.Sprintf("unexpected character: %c", c))
-	}
-
-	return Token{Type: EOF}
-}
-
-// 以下是辅助方法
-
-func (l *Lexer) skipSpace() {
-	for l.pos < len(l.input) && isSpace(l.input[l.pos]) {
-		l.pos++
-	}
-}
-
-func (l *Lexer) readIdentifierOrKeyword() Token {
-	start := l.pos
-	for l.pos < len(l.input) && (isLetter(l.input[l.pos]) || isDigit(l.input[l.pos]) || l.input[l.pos] == '_') {
-		l.pos++
-	}
-
-	value := l.input[start:l.pos]
-	tokenType := Identifier
-	if isKeyword(value) {
-		tokenType = Keyword
-	}
-
-	return Token{
-		Type:  tokenType,
-		Value: value,
-		Pos:   start,
-	}
-}
-
-func (l *Lexer) readNumberLiteral() Token {
-	start := l.pos
-	for l.pos < len(l.input) && isDigit(l.input[l.pos]) {
-		l.pos++
-	}
-
-	value := l.input[start:l.pos]
-	return Token{
-		Type:  NumberLiteral,
-		Value: value,
-		Pos:   start,
-	}
-}
-
-func (l *Lexer) readStringLiteral() Token {
-	start := l.pos
-	l.pos++ // 跳过第一个双引号
-
-	for l.pos < len(l.input) && l.input[l.pos] != '"' {
-		if l.input[l.pos] == '\\' {
-			l.pos++
-		}
-		l.pos++
-	}
-
-	if l.pos >= len(l.input) {
-		panic("unexpected end of input")
-	}
-
-	// 跳过最后一个双引号
-	l.pos++
-
-	value := l.input[start:l.pos]
-	return Token{
-		Type:  StringLiteral,
-		Value: value,
-		Pos:   start,
-	}
-}
-
-func (l *Lexer) readOperator() Token {
-	start := l.pos
-	l.pos++
-
-	// 连续读取运算符
-	for l.pos < len(l.input) && isOperator(l.input[l.pos]) {
-		l.pos++
-	}
-
-	value := l.input[start:l.pos]
-	return Token{
-		Type:  Operator,
-		Value: value,
-		Pos:   start,
-	}
-}
-
-func (l *Lexer) readDelimiter() Token {
-	start := l.pos
-	l.pos++
-
-	value := l.input[start:l.pos]
-	return Token{
-		Type:  Delimiter,
-		Value: value,
-		Pos:   start,
-	}
-}
-
-func isSpace(c byte) bool {
-	return c == ' ' || c == '\t' || c == '\n'
-}
-
-func isLetter(c byte) bool {
-	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
-}
-
-func isDigit(c byte) bool {
-	return c >= '0' && c <= '9'
-}
-
-func isOperator(c byte) bool {
-	return strings.ContainsAny(string(c), "+-*/%=&|<>!") || c == ':' || c == '.'
-}
-
-func isDelimiter(c byte) bool {
-	return strings.ContainsAny(string(c), "()[]{},;")
-}
-
-func isKeyword(value string) bool {
-	switch value {
-	case "def", "if", "else", "for", "while", "in", "return", "True", "False", "None", "and", "or", "not", "is", "class":
-		return true
+	case '+':
+		tok = newToken(token.PLUS, l.ch)
+	case '-':
+		tok = newToken(token.MINUS, l.ch)
+	case '*':
+		tok = newToken(token.MULTI, l.ch)
+	case '/':
+		tok = newToken(token.DIV, l.ch)
+	case '<':
+		tok = newToken(token.LT, l.ch)
+	case '>':
+		tok = newToken(token.GT, l.ch)
+	case ',':
+		tok = newToken(token.COMMA, l.ch)
+	case ';':
+		tok = newToken(token.SEMICOLON, l.ch)
+	case '(':
+		tok = newToken(token.LPAREN, l.ch)
+	case ')':
+		tok = newToken(token.RPAREN, l.ch)
+	case '{':
+		tok = newToken(token.LBRACE, l.ch)
+	case '}':
+		tok = newToken(token.RBRACE, l.ch)
+	case '[':
+		tok = newToken(token.LBRACKET, l.ch)
+	case ']':
+		tok = newToken(token.RBRACKET, l.ch)
+	case 0:
+		tok.Literal = ""
+		tok.Type = token.EOF
 	default:
-		return false
+		if isLetter(l.ch) {
+			tok.Literal = l.readIdentifier()
+			tok.Type = isKeyword(tok.Literal)
+			return tok
+		} else if isDigit(l.ch) {
+			tok.Type = token.INT
+			tok.Literal = l.readNumber()
+			return tok
+		} else {
+			tok = newToken(token.ILLEGAL, l.ch)
+		}
 	}
+
+	l.readChar()
+	return tok
+}
+
+func newToken(tokenType token.TokenType, ch byte) token.Token {
+	return token.Token{Type: tokenType, Literal: string(ch)}
+}
+
+func isLetter(ch byte) bool {
+	// TODO: Update this function to accurately check for valid Python identifiers
+	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
+}
+
+func isDigit(ch byte) bool {
+	return '0' <= ch && ch <= '9'
+}
+
+func (l *Lexer) skipWhitespace() {
+	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
+		l.readChar()
+	}
+}
+
+func (l *Lexer) readIdentifier() string {
+	position := l.position
+	for isLetter(l.ch) {
+		l.readChar()
+	}
+	return l.input[position:l.position]
+}
+
+func (l *Lexer) readNumber() string {
+	position := l.position
+	for isDigit(l.ch) {
+		l.readChar()
+	}
+	return l.input[position:l.position]
+}
+
+func isKeyword(ident string) token.TokenType {
+	if tokenType, ok := token.Keywords[ident]; ok {
+		return tokenType
+	}
+	return token.IDENT
+}
+
+func (l *Lexer) peekChar() byte {
+	if l.readPosition >= len(l.input) {
+		return 0
+	}
+	return l.input[l.readPosition]
 }

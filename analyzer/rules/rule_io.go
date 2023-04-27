@@ -31,7 +31,7 @@ func (r *RuleIO) CheckConditionA(ast *parser.ast.Node) {
 	expressions := ast.SearchExpressions(func(node *parser.ast.Node) bool {
 		if node.Type == parser.ExpressionTypeCall {
 			function := node.Children[0]
-			if function.TokenLiteral() == "os.system" || function.TokenLiteral() == "subprocess.call" || function.TokenLiteral() == "multiprocessing.Process" {
+			if function.token.TokenLiteral() == "os.system" || function.token.TokenLiteral() == "subprocess.call" || function.token.TokenLiteral() == "multiprocessing.Process" {
 				return true
 			}
 		}
@@ -42,12 +42,12 @@ func (r *RuleIO) CheckConditionA(ast *parser.ast.Node) {
 	for _, expression := range expressions {
 		for _, argument := range expression.Children[1:] {
 			if argument.Type == parser.ExpressionTypeString {
-				if strings.HasPrefix(strings.TrimSpace(argument.TokenLiteral()), "-") {
-					r.reporter.AddIssue(expression.TokenLiteral(), expression.Token.Line, "调用命令时未指定命令参数")
+				if strings.HasPrefix(strings.TrimSpace(argument.token.TokenLiteral()), "-") {
+					r.reporter.AddIssue(expression.token.TokenLiteral(), expression.token.Token.Line, "调用命令时未指定命令参数")
 				}
 			} else if argument.Type == parser.ExpressionTypeIdentifier {
-				if strings.HasPrefix(strings.TrimSpace(argument.TokenLiteral()), "-") {
-					r.reporter.AddIssue(expression.TokenLiteral(), expression.Token.Line, "调用命令时未指定命令参数")
+				if strings.HasPrefix(strings.TrimSpace(argument.token.TokenLiteral()), "-") {
+					r.reporter.AddIssue(expression.token.TokenLiteral(), expression.token.Token.Line, "调用命令时未指定命令参数")
 				}
 			}
 		}
@@ -60,7 +60,7 @@ func (r *RuleIO) CheckConditionB(ast *parser.ast.Node) {
 	expressions := ast.SearchExpressions(func(node *parser.ast.Node) bool {
 		if node.Type == parser.ExpressionTypeCall {
 			function := node.Children[0]
-			if function.TokenLiteral() == "shutil.rmtree" || function.TokenLiteral() == "os.remove" || function.TokenLiteral() == "os.rmdir" || function.TokenLiteral() == "os.unlink" {
+			if function.token.TokenLiteral() == "shutil.rmtree" || function.token.TokenLiteral() == "os.remove" || function.token.TokenLiteral() == "os.rmdir" || function.token.TokenLiteral() == "os.unlink" {
 				return true
 			}
 		}
@@ -69,7 +69,7 @@ func (r *RuleIO) CheckConditionB(ast *parser.ast.Node) {
 
 	// 报告所有删除文件/目录的调用
 	for _, expression := range expressions {
-		r.reporter.AddIssue(expression.TokenLiteral(), expression.Token.Line, "调用了删除文件/目录的函数："+expression.Children[0].TokenLiteral())
+		r.reporter.AddIssue(expression.token.TokenLiteral(), expression.token.Token.Line, "调用了删除文件/目录的函数："+expression.Children[0].token.TokenLiteral())
 	}
 }
 

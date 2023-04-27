@@ -34,7 +34,7 @@ func (r *RuleSQL) CheckConditionA(ast *parser.ast.Node) {
 	for _, node := range ast.Nodes {
 		switch n := node.(type) {
 		case *parser.CallExpression:
-			if strings.ToLower(n.Function.TokenLiteral()) == "execute" && len(n.Arguments) > 0 {
+			if strings.ToLower(n.Function.token.TokenLiteral()) == "execute" && len(n.Arguments) > 0 {
 				arg := n.Arguments[0]
 				if strLit, ok := arg.(*parser.StringLiteral); ok {
 					if strings.Contains(strings.ToLower(strLit.Value), "select ") ||
@@ -42,7 +42,7 @@ func (r *RuleSQL) CheckConditionA(ast *parser.ast.Node) {
 						strings.Contains(strings.ToLower(strLit.Value), "delete ") ||
 						strings.Contains(strings.ToLower(strLit.Value), "insert ") ||
 						strings.Contains(strings.ToLower(strLit.Value), "update ") {
-						r.reporter.AddIssue(ast.TokenLiteral(), arg.Line(), "Potential SQL injection vulnerability")
+						r.reporter.AddIssue(ast.token.TokenLiteral(), arg.Line(), "Potential SQL injection vulnerability")
 					}
 				}
 			}
@@ -89,13 +89,13 @@ func (r *RuleSQL) CheckConditionC(ast *parser.ast.Node) {
 	for _, stmt := range selectStmts {
 		// 检查 where 子句中是否包含类似 'or'=' 的字符串
 		whereClause := stmt.FindFirst(parser.NodeTypeWhereClause)
-		if whereClause != nil && strings.Contains(whereClause.TokenLiteral(), "'or'='") {
-			r.reporter.AddIssue(ast.TokenLiteral(), stmt.Token.Line, "SQL Injection Vulnerability: 'or'=' found in WHERE clause")
+		if whereClause != nil && strings.Contains(whereClause.token.TokenLiteral(), "'or'='") {
+			r.reporter.AddIssue(ast.token.TokenLiteral(), stmt.token.Token.Line, "SQL Injection Vulnerability: 'or'=' found in WHERE clause")
 		}
 		// 检查 select 子句中是否包含类似 'union' 的字符串
 		selectClause := stmt.FindFirst(parser.NodeTypeSelectClause)
-		if selectClause != nil && strings.Contains(selectClause.TokenLiteral(), "union") {
-			r.reporter.AddIssue(ast.TokenLiteral(), stmt.Token.Line, "SQL Injection Vulnerability: 'union' found in SELECT clause")
+		if selectClause != nil && strings.Contains(selectClause.token.TokenLiteral(), "union") {
+			r.reporter.AddIssue(ast.token.TokenLiteral(), stmt.token.Token.Line, "SQL Injection Vulnerability: 'union' found in SELECT clause")
 		}
 	}
 
@@ -104,8 +104,8 @@ func (r *RuleSQL) CheckConditionC(ast *parser.ast.Node) {
 	for _, stmt := range insertStmts {
 		// 检查 values 子句中是否包含未过滤的用户输入
 		valuesClause := stmt.FindFirst(parser.NodeTypeValuesClause)
-		if valuesClause != nil && strings.Contains(valuesClause.TokenLiteral(), "'") {
-			r.reporter.AddIssue(ast.TokenLiteral(), stmt.Token.Line, "SQL Injection Vulnerability: Unsanitized user input in VALUES clause")
+		if valuesClause != nil && strings.Contains(valuesClause.token.TokenLiteral(), "'") {
+			r.reporter.AddIssue(ast.token.TokenLiteral(), stmt.token.Token.Line, "SQL Injection Vulnerability: Unsanitized user input in VALUES clause")
 		}
 	}
 
@@ -114,8 +114,8 @@ func (r *RuleSQL) CheckConditionC(ast *parser.ast.Node) {
 	for _, stmt := range updateStmts {
 		// 检查 set 子句中是否包含未过滤的用户输入
 		setClause := stmt.FindFirst(parser.NodeTypeSetClause)
-		if setClause != nil && strings.Contains(setClause.TokenLiteral(), "'") {
-			r.reporter.AddIssue(ast.TokenLiteral(), stmt.Token.Line, "SQL Injection Vulnerability: Unsanitized user input in SET clause")
+		if setClause != nil && strings.Contains(setClause.token.TokenLiteral(), "'") {
+			r.reporter.AddIssue(ast.token.TokenLiteral(), stmt.token.Token.Line, "SQL Injection Vulnerability: Unsanitized user input in SET clause")
 		}
 	}
 }
@@ -137,6 +137,6 @@ func (r *RuleSQL) CheckConditionD(ast *parser.ast.Node) {
 	})
 
 	if !hasParameterizedQuery {
-		r.reporter.AddIssue(ast.TokenLiteral(), 0, "SQL Injection Vulnerability: Parameterized query not used")
+		r.reporter.AddIssue(ast.token.TokenLiteral(), 0, "SQL Injection Vulnerability: Parameterized query not used")
 	}
 }

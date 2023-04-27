@@ -1,5 +1,7 @@
 package parser
 
+import "go/token"
+
 // NodeType is a type to represent different kinds of AST nodes
 type NodeType string
 
@@ -15,6 +17,7 @@ const (
 	NodeClassDef   NodeType = "ClassDef"
 	NodeImport     NodeType = "Import"
 	NodePass       NodeType = "Pass"
+	NodeBlock      NodeType = "Block"
 	// Expression Nodes
 	NodeIdentifier NodeType = "Identifier"
 	NodeInteger    NodeType = "Integer"
@@ -46,7 +49,8 @@ const (
 )
 
 type Node struct {
-	Type     NodeType
-	Token    Token
-	Children []*Node
+	Type       NodeType
+	Token      token.Token
+	Children   []*Node
+	Properties map[string]interface{}
 }

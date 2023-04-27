@@ -35,7 +35,7 @@ func (r *RuleXSS) checkForXSS(node *parser.ast.Node) {
 		switch outputNode.Type {
 		case parser.NodeTypeFunctionCall:
 			// 判断函数是否是 HTML 编码函数
-			functionName := outputNode.GetChildByIndex(0).TokenLiteral()
+			functionName := outputNode.GetChildByIndex(0).token.TokenLiteral()
 			if functionName == "html" || functionName == "htmlspecialchars" {
 				isEncoded = true
 			}
@@ -43,7 +43,7 @@ func (r *RuleXSS) checkForXSS(node *parser.ast.Node) {
 			// 判断赋值语句右侧的表达式是否是 HTML 编码函数的调用
 			expr := outputNode.GetChildByIndex(1)
 			if expr.Type == parser.NodeTypeFunctionCall {
-				functionName := expr.GetChildByIndex(0).TokenLiteral()
+				functionName := expr.GetChildByIndex(0).token.TokenLiteral()
 				if functionName == "html" || functionName == "htmlspecialchars" {
 					isEncoded = true
 				}
@@ -55,7 +55,7 @@ func (r *RuleXSS) checkForXSS(node *parser.ast.Node) {
 			// 检查输出值是否包含用户输入
 			inputNodes := outputNode.FindAll(parser.NodeTypeIdentifier)
 			for _, inputNode := range inputNodes {
-				inputName := inputNode.TokenLiteral()
+				inputName := inputNode.token.TokenLiteral()
 
 				// 根据变量名查找变量定义
 				varDecl := node.FindVariableDeclaration(inputName)
@@ -69,7 +69,7 @@ func (r *RuleXSS) checkForXSS(node *parser.ast.Node) {
 				varValue := varDecl.GetChildByIndex(1)
 				if varValue.Type == parser.NodeTypeInput {
 					// 发现了未编码的用户输入，将其添加到报告中
-					r.reporter.AddIssue(node.Filename, outputNode.Line, "Unencoded user input found in output: "+outputValue.TokenLiteral())
+					r.reporter.AddIssue(node.Filename, outputNode.Line, "Unencoded user input found in output: "+outputValue.token.TokenLiteral())
 				}
 			}
 		}
