@@ -1,10 +1,12 @@
 package parse
+
 //修改：
 // 统一处理错误
 import (
 	"errors"
 	"fmt"
-	"sast_python/lexer"
+
+	"github.com/coiloffaraday/python_sast/lexer"
 )
 
 type Parser struct {

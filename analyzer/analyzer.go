@@ -3,10 +3,10 @@ package analyzer
 import (
 	"fmt"
 
-	"github.com/yourusername/yourproject/parser"
-	"github.com/yourusername/yourproject/reporter"
-	"github.com/yourusername/yourproject/rules"
-	"main.go/utils"
+	"github.com/coiloffaraday/python_sast/parser"
+	"github.com/coiloffaraday/python_sast/reporter"
+	"github.com/coiloffaraday/python_sast/rules"
+	"github.com/coiloffaraday/python_sast/utils"
 )
 
 type Config struct {
@@ -55,9 +55,6 @@ func (a *Analyzer) AnalyzeFile(file string) error {
 			fmt.Printf("Warning: Unknown rule '%s' specified in config.\n", ruleName)
 		}
 	}
-
-	// ...实现分析AST的逻辑，并将结果添加到报告中
-
 	return nil
 }
 

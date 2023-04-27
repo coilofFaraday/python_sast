@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/coiloffaraday/python_sast/analyzer"
-	"github.com/yourusername/yourproject/utils"
+	"github.com/coiloffaraday/python_sast/utils"
 )
 
 var inputPath string
