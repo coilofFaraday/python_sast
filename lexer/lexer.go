@@ -1,16 +1,22 @@
 package lexer
 
-import "github.com/coiloffaraday/python_sast/token"
+import (
+	"unicode"
+
+	"github.com/coiloffaraday/python_sast/token"
+)
 
 type Lexer struct {
 	input        string
-	position     int
-	readPosition int
-	ch           byte
+	position     int  // 当前字符的位置
+	readPosition int  // 下一个字符的位置
+	ch           byte // 当前字符
+	line         int  // 当前行号
+	filePath     string
 }
 
-func New(input string) *Lexer {
-	l := &Lexer{input: input}
+func NewLexer(input string, filePath string) *Lexer {
+	l := &Lexer{input: input, filePath: filePath, line: 1}
 	l.readChar()
 	return l
 }
@@ -20,6 +26,9 @@ func (l *Lexer) readChar() {
 		l.ch = 0
 	} else {
 		l.ch = l.input[l.readPosition]
+		if l.ch == '\n' {
+			l.line++
+		}
 	}
 	l.position = l.readPosition
 	l.readPosition++
@@ -94,8 +103,9 @@ func newToken(tokenType token.TokenType, ch byte) token.Token {
 }
 
 func isLetter(ch byte) bool {
-	// TODO: Update this function to accurately check for valid Python identifiers
-	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
+	r := rune(ch)
+
+	return 'a' <= r && r <= 'z' || 'A' <= r && r <= 'Z' || r == '_' || unicode.IsLetter(r)
 }
 
 func isDigit(ch byte) bool {
@@ -136,4 +146,12 @@ func (l *Lexer) peekChar() byte {
 		return 0
 	}
 	return l.input[l.readPosition]
+}
+
+func (l *Lexer) FilePath() string {
+	return l.filePath
+}
+
+func (l *Lexer) Line() int {
+	return l.line
 }

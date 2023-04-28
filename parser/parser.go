@@ -7,20 +7,56 @@ import (
 	"github.com/coiloffaraday/python_sast/token"
 )
 
-const LOWEST = -1
+const (
+	_ int = iota
+	LOWEST
+	OR
+	AND
+	EQUALS
+	LESSGREATER
+	SUM
+	PRODUCT
+	EXPONENT
+	PREFIX
+	CALL
+)
+
+var precedences = map[token.TokenType]int{
+	token.OR:       OR,
+	token.AND:      AND,
+	token.EQ:       EQUALS,
+	token.NE:       EQUALS,
+	token.LT:       LESSGREATER,
+	token.GT:       LESSGREATER,
+	token.PLUS:     SUM,
+	token.MINUS:    SUM,
+	token.MULTI:    PRODUCT,
+	token.DIV:      PRODUCT,
+	token.LPAREN:   CALL,
+	token.LBRACKET: CALL,
+}
 
 type Parser struct {
-	l      *lexer.Lexer
-	errors []string
-
-	curToken  token.Token
-	peekToken token.Token
+	l              *lexer.Lexer
+	filePath       string
+	errors         []string
+	curToken       token.Token
+	peekToken      token.Token
+	prefixParseFns map[token.TokenType]prefixParseFn
+	infixParseFns  map[token.TokenType]infixParseFn
 }
+
+type (
+	prefixParseFn func() *Node
+	infixParseFn  func(*Node) *Node
+)
 
 func New(l *lexer.Lexer) *Parser {
 	p := &Parser{
-		l:      l,
-		errors: []string{},
+		l:              l,
+		errors:         []string{},
+		prefixParseFns: make(map[token.TokenType]prefixParseFn),
+		infixParseFns:  make(map[token.TokenType]infixParseFn),
 	}
 
 	// Read two tokens, so curToken and peekToken are both set
@@ -101,7 +137,7 @@ func (p *Parser) parseIfStatement() *Node {
 
 	return &Node{
 		Type:       NodeIfStmt,
-		Properties: map[string]*Node{"condition": condition, "consequent": consequent, "alternate": alternate},
+		Properties: map[string]interface{}{"condition": condition, "consequent": consequent, "alternate": alternate},
 	}
 }
 
@@ -129,18 +165,15 @@ func (p *Parser) parseAssignStatement() *Node {
 	// TODO: Implement the parsing logic for assignment statements.
 	return nil
 }
-
 func (p *Parser) parseExpressionStatement() *Node {
 	expressionStatement := &Node{
-		Type: NodeExpressionStatement,
+		Type:       NodeExprStmt,
+		Properties: map[string]interface{}{},
+		Children:   []*Node{},
+		FilePath:   p.l.FilePath(),
+		Line:       p.l.Line(),
 	}
-
-	expressionStatement.Expression = p.parseExpression(LOWEST)
-
-	if p.peekTokenIs(token.SEMICOLON) {
-		p.nextToken()
-	}
-
+	expressionStatement.Children = append(expressionStatement.Children, p.parseExpression(LOWEST))
 	return expressionStatement
 }
 
@@ -201,4 +234,16 @@ func (p *Parser) peekTokenIs(t token.TokenType) bool {
 
 func (p *Parser) curTokenIs(t token.TokenType) bool {
 	return p.curToken.Type == t
+}
+
+func (p *Parser) noPrefixParseFnError(t token.TokenType) {
+	msg := fmt.Sprintf("no prefix parse function for %s found", t)
+	p.errors = append(p.errors, msg)
+}
+
+func (p *Parser) peekPrecedence() int {
+	if precedence, ok := precedences[p.peekToken.Type]; ok {
+		return precedence
+	}
+	return LOWEST
 }

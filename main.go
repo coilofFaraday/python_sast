@@ -1,104 +1,104 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/coiloffaraday/python_sast/analyzer"
-	"github.com/coiloffaraday/python_sast/utils"
 )
 
-var inputPath string
-
-func init() {
-	flag.StringVar(&inputPath, "input", "", "Path to the Python source directory or file to be analyzed.")
-}
-
-func main() {
-	flag.Parse()
-
-	if inputPath == "" {
-		fmt.Println("Error: No input file provided.")
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	configPath := "path/to/config.json" // 设置为你的配置文件路径
-	config, err := parseConfigurationFile(configPath)
-	if err != nil {
-		fmt.Printf("Error parsing config file: %v\n", err)
-		os.Exit(1)
-	}
-
-	// 实例化分析器并分析输入文件
-	ana := analyzer.NewAnalyzer(config)
-	var filePaths []string
-
-	if info, err := os.Stat(inputPath); err == nil && info.IsDir() {
-		filePaths, err = utils.GetAllPythonFiles(inputPath)
-		if err != nil {
-			fmt.Printf("Error getting Python files from directory: %v\n", err)
-			os.Exit(2)
-		}
-	} else {
-		filePaths = []string{inputPath}
-	}
-
-	err := ana.AnalyzeFiles(filePaths)
-	if err != nil {
-		fmt.Printf("Error analyzing files: %v\n", err)
-		os.Exit(2)
-	}
-
-	if err != nil {
-		fmt.Printf("Error analyzing file: %v\n", err)
-		os.Exit(2)
-	}
-
-	// 获取报告并打印
-	report := ana.GetReport()
-	report.Print()
-
-	// ...其他扩展功能（例如保存报告到文件、转换报告格式等）
-}
-
-// parseConfigurationFile 解析配置文件并返回配置
-func parseConfigurationFile(configPath string) (*analyzer.Config, error) {
-	// 打开配置文件
-	file, err := os.Open(configPath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	// 解析JSON配置
-	decoder := json.NewDecoder(file)
-	config := &analyzer.Config{}
-	err = decoder.Decode(config)
-	if err != nil {
-		return nil, err
-	}
-
-	return config, nil
-}
-
-// displayHelp 显示帮助信息
-func displayHelp() {
-	fmt.Println("Usage: python-sast -input <path/to/python/file>")
+func printHelp() {
+	fmt.Println("Usage: python_sast [options] [files...]")
+	fmt.Println()
 	fmt.Println("Options:")
-	flag.PrintDefaults()
+	fmt.Println("  -h, --help        Show this help message")
+	fmt.Println("  -c, --config FILE Specify the path to the config.yaml file (default: 'config.yaml')")
+	fmt.Println("  -d, --directory DIR Process all files in the specified directory")
+	fmt.Println("  -f, --file FILE Process a single file")
+	fmt.Println()
+	fmt.Println("Example:")
+	fmt.Println("  python_sast -c myconfig.yaml -d myproject/")
 }
 
-func (a *Analyzer) AnalyzeFiles(filePaths []string) error {
-	for _, filePath := range filePaths {
-		err := a.AnalyzeFile(filePath)
+func processDirectory(analyzerInstance *analyzer.Analyzer, dir string) {
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
+
+		if !info.IsDir() {
+			err := analyzerInstance.AnalyzeFile(path)
+			if err != nil {
+				log.Printf("Error analyzing file '%s': %v\n", path, err)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		log.Printf("Error processing directory '%s': %v\n", dir, err)
 	}
-	return nil
 }
 
-// ...更多扩展功能函数
+func main() {
+	help := flag.Bool("h", false, "Show help message")
+	helpLong := flag.Bool("help", false, "Show help message")
+	configPath := flag.String("c", "config.yaml", "Path to the config.yaml file")
+	configPathLong := flag.String("config", "config.yaml", "Path to the config.yaml file")
+	directory := flag.String("d", "", "Process all files in the specified directory")
+	directoryLong := flag.String("directory", "", "Process all files in the specified directory")
+	file := flag.String("f", "", "Process a single file")
+	fileLong := flag.String("file", "", "Process a single file")
+
+	flag.Parse()
+
+	if *help || *helpLong {
+		printHelp()
+		return
+	}
+
+	config, err := analyzer.LoadConfigFromFile(*configPath)
+	if err != nil {
+		log.Fatalf("Error loading config: %v", err)
+	}
+
+	if *configPath != "config.yaml" && *configPathLong != "config.yaml" {
+		log.Fatalf("Error: Both -c and --config options are provided. Please use only one of them.")
+	}
+
+	if *configPathLong != "config.yaml" {
+		config, err = analyzer.LoadConfigFromFile(*configPathLong)
+		if err != nil {
+			log.Fatalf("Error loading config: %v", err)
+		}
+	}
+
+	analyzerInstance := analyzer.NewAnalyzer(config)
+
+	if *directory != "" || *directoryLong != "" {
+		dir := *directory
+		if *directoryLong != "" {
+			dir = *directoryLong
+		}
+		processDirectory(analyzerInstance, dir)
+	} else if *file != "" || *fileLong != "" {
+		filename := *file
+		if *fileLong != "" {
+			filename = *fileLong
+		}
+		err := analyzerInstance.AnalyzeFile(filename)
+		if err != nil {
+			log.Printf("Error analyzing file '%s': %v\n", filename, err)
+		}
+	} else {
+		printHelp()
+		return
+	}
+
+	report := analyzerInstance.GetReport()
+	report.Print()
+}

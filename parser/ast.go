@@ -53,4 +53,7 @@ type Node struct {
 	Token      token.Token
 	Children   []*Node
 	Properties map[string]interface{}
+	Expression *Node
+	FilePath   string
+	Line       int
 }
