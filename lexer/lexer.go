@@ -1,22 +1,20 @@
 package lexer
 
 import (
-	"unicode"
-
-	"github.com/coiloffaraday/python_sast/token"
+	sasttoken "github.com/coiloffaraday/python_sast/token"
 )
 
 type Lexer struct {
 	input        string
-	position     int  // 当前字符的位置
-	readPosition int  // 下一个字符的位置
-	ch           byte // 当前字符
-	line         int  // 当前行号
-	filePath     string
+	position     int
+	readPosition int
+	ch           byte
+	Line         int
+	FilePath     string
 }
 
 func NewLexer(input string, filePath string) *Lexer {
-	l := &Lexer{input: input, filePath: filePath, line: 1}
+	l := &Lexer{input: input, Line: 1, FilePath: filePath}
 	l.readChar()
 	return l
 }
@@ -26,71 +24,76 @@ func (l *Lexer) readChar() {
 		l.ch = 0
 	} else {
 		l.ch = l.input[l.readPosition]
-		if l.ch == '\n' {
-			l.line++
-		}
 	}
 	l.position = l.readPosition
 	l.readPosition++
+	if l.ch == '\n' {
+		l.Line++
+	}
 }
 
-func (l *Lexer) NextToken() token.Token {
-	var tok token.Token
+func (l *Lexer) NextToken() sasttoken.Token {
+	var tok sasttoken.Token
 
 	l.skipWhitespace()
 
 	switch l.ch {
 	case '=':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = token.Token{Type: token.EQ, Literal: literal}
-		} else {
-			tok = newToken(token.ASSIGN, l.ch)
-		}
-	case '+':
-		tok = newToken(token.PLUS, l.ch)
-	case '-':
-		tok = newToken(token.MINUS, l.ch)
-	case '*':
-		tok = newToken(token.MULTI, l.ch)
-	case '/':
-		tok = newToken(token.DIV, l.ch)
-	case '<':
-		tok = newToken(token.LT, l.ch)
-	case '>':
-		tok = newToken(token.GT, l.ch)
-	case ',':
-		tok = newToken(token.COMMA, l.ch)
+		tok = newToken(sasttoken.ASSIGN, l.ch, l.Line, l.FilePath)
 	case ';':
-		tok = newToken(token.SEMICOLON, l.ch)
+		tok = newToken(sasttoken.SEMICOLON, l.ch, l.Line, l.FilePath)
 	case '(':
-		tok = newToken(token.LPAREN, l.ch)
+		tok = newToken(sasttoken.LPAREN, l.ch, l.Line, l.FilePath)
 	case ')':
-		tok = newToken(token.RPAREN, l.ch)
-	case '{':
-		tok = newToken(token.LBRACE, l.ch)
-	case '}':
-		tok = newToken(token.RBRACE, l.ch)
-	case '[':
-		tok = newToken(token.LBRACKET, l.ch)
-	case ']':
-		tok = newToken(token.RBRACKET, l.ch)
+		tok = newToken(sasttoken.RPAREN, l.ch, l.Line, l.FilePath)
+	case ',':
+		tok = newToken(sasttoken.COMMA, l.ch, l.Line, l.FilePath)
+	case '+':
+		tok = newToken(sasttoken.PLUS, l.ch, l.Line, l.FilePath)
+	case '-':
+		tok = newToken(sasttoken.MINUS, l.ch, l.Line, l.FilePath)
+	case '!':
+		tok = newToken(sasttoken.BANG, l.ch, l.Line, l.FilePath)
+	case '/':
+		tok = newToken(sasttoken.SLASH, l.ch, l.Line, l.FilePath)
+	case '*':
+		tok = newToken(sasttoken.ASTERISK, l.ch, l.Line, l.FilePath)
+	case '<':
+		tok = newToken(sasttoken.LT, l.ch, l.Line, l.FilePath)
+	case '>':
+		tok = newToken(sasttoken.GT, l.ch, l.Line, l.FilePath)
+	case ':':
+		tok = newToken(sasttoken.COLON, l.ch, l.Line, l.FilePath)
+	case '|':
+		tok = newToken(sasttoken.PIPE, l.ch, l.Line, l.FilePath)
+	case '&':
+		tok = newToken(sasttoken.AMPERSAND, l.ch, l.Line, l.FilePath)
+	case '%':
+		tok = newToken(sasttoken.MOD, l.ch, l.Line, l.FilePath)
+	case '^':
+		tok = newToken(sasttoken.CARET, l.ch, l.Line, l.FilePath)
+	case '~':
+		tok = newToken(sasttoken.TILDE, l.ch, l.Line, l.FilePath)
 	case 0:
 		tok.Literal = ""
-		tok.Type = token.EOF
+		tok.Type = sasttoken.EOF
+		tok.Line = l.Line
+		tok.FilePath = l.FilePath
 	default:
 		if isLetter(l.ch) {
 			tok.Literal = l.readIdentifier()
-			tok.Type = isKeyword(tok.Literal)
+			tok.Type = sasttoken.LookupIdent(tok.Literal)
+			tok.Line = l.Line
+			tok.FilePath = l.FilePath
 			return tok
 		} else if isDigit(l.ch) {
-			tok.Type = token.INT
+			tok.Type = sasttoken.INT
 			tok.Literal = l.readNumber()
+			tok.Line = l.Line
+			tok.FilePath = l.FilePath
 			return tok
 		} else {
-			tok = newToken(token.ILLEGAL, l.ch)
+			tok = newToken(sasttoken.ILLEGAL, l.ch, l.Line, l.FilePath)
 		}
 	}
 
@@ -98,24 +101,8 @@ func (l *Lexer) NextToken() token.Token {
 	return tok
 }
 
-func newToken(tokenType token.TokenType, ch byte) token.Token {
-	return token.Token{Type: tokenType, Literal: string(ch)}
-}
-
-func isLetter(ch byte) bool {
-	r := rune(ch)
-
-	return 'a' <= r && r <= 'z' || 'A' <= r && r <= 'Z' || r == '_' || unicode.IsLetter(r)
-}
-
-func isDigit(ch byte) bool {
-	return '0' <= ch && ch <= '9'
-}
-
-func (l *Lexer) skipWhitespace() {
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
-		l.readChar()
-	}
+func newToken(tokenType sasttoken.TokenType, ch byte, line int, filePath string) sasttoken.Token {
+	return sasttoken.Token{Type: tokenType, Literal: string(ch), Line: line, FilePath: filePath}
 }
 
 func (l *Lexer) readIdentifier() string {
@@ -134,24 +121,16 @@ func (l *Lexer) readNumber() string {
 	return l.input[position:l.position]
 }
 
-func isKeyword(ident string) token.TokenType {
-	if tokenType, ok := token.Keywords[ident]; ok {
-		return tokenType
+func (l *Lexer) skipWhitespace() {
+	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
+		l.readChar()
 	}
-	return token.IDENT
 }
 
-func (l *Lexer) peekChar() byte {
-	if l.readPosition >= len(l.input) {
-		return 0
-	}
-	return l.input[l.readPosition]
+func isLetter(ch byte) bool {
+	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
 }
 
-func (l *Lexer) FilePath() string {
-	return l.filePath
-}
-
-func (l *Lexer) Line() int {
-	return l.line
+func isDigit(ch byte) bool {
+	return '0' <= ch && ch <= '9'
 }

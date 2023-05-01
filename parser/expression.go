@@ -1,149 +1,198 @@
 package parser
 
-import "go/token"
+import (
+	"fmt"
+	"strconv"
 
-// Expression is an interface for all expression nodes
-type Expression interface {
-	expressionNode()
+	sasttoken "github.com/coiloffaraday/python_sast/token"
+)
+
+LOWEST := 0
+PREFIX := 1
+
+func (p *Parser) parseExpression() (Expression, error) {
+	return p.parsePrefix()
 }
 
-type Identifier struct {
-	Token token.Token // the token.Token.IDENT token.Token
-	Value string
+func (p *Parser) parsePrefix() (Expression, error) {
+	switch p.curToken.Type {
+	case sasttoken.INT:
+		return p.parseIntegerLiteral()
+	case sasttoken.FLOAT:
+		return p.parseFloatLiteral()
+	case sasttoken.IDENT:
+		return p.parseIdentifier()
+	case sasttoken.STRING:
+		return p.parseStringLiteral()
+	case sasttoken.TRUE, sasttoken.FALSE:
+		return p.parseBooleanLiteral()
+	case sasttoken.NONE:
+		return p.parseNoneLiteral()
+	case sasttoken.LAMBDA:
+		return p.parseLambdaExpression()
+	case sasttoken.LPAREN:
+		return p.parseGroupedExpression()
+	case sasttoken.LBRACKET:
+		return p.parseListLiteral()
+	case sasttoken.PLUS, sasttoken.MINUS, sasttoken.BANG:
+		return p.parsePrefixExpression()
+	default:
+		return nil, fmt.Errorf("unexpected token: %s", p.curToken)
+	}
 }
 
-type IntegerLiteral struct {
-	Token token.Token // the token.Token.INT token.Token
-	Value int64
+// ... other functions such as parseIntegerLiteral, parseFloatLiteral, etc.
+
+func (p *Parser) parseInfixExpression(left Expression) (Expression, error) {
+	infixExp := &InfixExpression{
+		Token:    p.curToken,
+		Operator: p.curToken.Literal,
+		Left:     left,
+	}
+
+	precedence := p.curPrecedence()
+	p.nextToken()
+
+	right, err := p.parseExpression(precedence)
+	if err != nil {
+		return nil, err
+	}
+
+	infixExp.Right = right
+
+	return infixExp, nil
 }
 
-type FloatLiteral struct {
-	Token token.Token // the token.Token.FLOAT token.Token
-	Value float64
+func (p *Parser) parseGroupedExpression() (Expression, error) {
+	p.nextToken()
+	exp, err := p.parseExpression(LOWEST)
+	if err != nil {
+		return nil, err
+	}
+
+	if !p.expectPeek(sasttoken.RPAREN) {
+		return nil, fmt.Errorf("expected right parenthesis, got %s", p.peekToken.Type)
+	}
+
+	return exp, nil
 }
 
-type StringLiteral struct {
-	Token token.Token // the token.Token.STRING token.Token
-	Value string
+func (p *Parser) parseListLiteral() (Expression, error) {
+	// Consume the opening bracket.
+	p.nextToken()
+
+	// Parse the list elements.
+	elements, err := p.parseListElements()
+	if err != nil {
+		return nil, err
+	}
+
+	// Consume the closing bracket.
+	if !p.expectPeek(sasttoken.RBRACKET) {
+		return nil, fmt.Errorf("missing closing bracket")
+	}
+
+	return &ListLiteral{Elements: elements}, nil
 }
 
-type BooleanLiteral struct {
-	Token token.Token // the token.Token.TRUE or token.Token.FALSE token.Token
-	Value bool
+func (p *Parser) parseIntegerLiteral() (Expression, error) {
+	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	p.nextToken()
+
+	return &IntegerLiteral{Value: value}, nil
 }
 
-type NoneLiteral struct {
-	Token token.Token // The 'None' token.Token
+func (p *Parser) parseFloatLiteral() (Expression, error) {
+	value, err := strconv.ParseFloat(p.curToken.Literal, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	p.nextToken()
+
+	return &FloatLiteral{Value: value}, nil
 }
 
-type UnaryExpression struct {
-	Token    token.Token // the prefix token.Token; e.g. '!', '-'
-	Operator string
-	Right    *Node
+func (p *Parser) parseIdentifier() (Expression, error) {
+	ident := &Identifier{Value: p.curToken.Literal}
+	p.nextToken()
+	return ident, nil
 }
 
-type BinaryExpression struct {
-	Token    token.Token // the operator token.Token; e.g. '+'
-	Operator string
-	Left     *Node
-	Right    *Node
+func (p *Parser) parseStringLiteral() (Expression, error) {
+	str := &StringLiteral{Value: p.curToken.Literal}
+	p.nextToken()
+	return str, nil
 }
 
-type CallExpression struct {
-	Token     token.Token // the '(' token.Token
-	Function  *Node
-	Arguments []*Node
+func (p *Parser) parseBooleanLiteral() (Expression, error) {
+	value := p.curToken.Type == sasttoken.TRUE
+	p.nextToken()
+	return &BooleanLiteral{Value: value}, nil
 }
 
-// Attribute represents an attribute access expression in Python, such as 'a.b'.
-type Attribute struct {
-	Token token.Token // The token.Token.DOT token.Token
-	Value *Node       // The expression that represents the object being accessed
-	Name  *Identifier // The attribute being accessed
+func (p *Parser) parseNoneLiteral() (Expression, error) {
+	p.nextToken()
+	return &NoneLiteral{}, nil
 }
 
-// Subscript represents a subscript expression in Python, such as 'a[0]'.
-type Subscript struct {
-	Token token.Token // The token.Token.LBRACKET token.Token
-	Value *Node       // The expression that represents the object being accessed
-	Index *Node       // The expression that represents the index value
+func (p *Parser) parseLambdaExpression() (Expression, error) {
+	// TODO: Implement lambda expression parsing
+	return nil, fmt.Errorf("lambda expression parsing not implemented")
 }
 
-// List represents a list literal in Python, such as '[1, 2, 3]'.
-type List struct {
-	Token    token.Token // The token.Token.LBRACKET token.Token
-	Elements []*Node     // The expressions that represent the elements of the list
+func (p *Parser) parseListElements() ([]Expression, error) {
+	elements := []Expression{}
+
+	// If the next token is a closing bracket, the list is empty.
+	if p.peekToken.Type == sasttoken.RBRACKET {
+		return elements, nil
+	}
+
+	// Parse the first element.
+	element, err := p.parseExpression()
+	if err != nil {
+		return nil, err
+	}
+	elements = append(elements, element)
+
+	// Continue parsing the rest of the elements.
+	for p.peekToken.Type == sasttoken.COMMA {
+		p.nextToken() // Consume the comma.
+		p.nextToken() // Move to the next element.
+
+		element, err := p.parseExpression()
+		if err != nil {
+			return nil, err
+		}
+		elements = append(elements, element)
+	}
+
+	return elements, nil
 }
 
-// Tuple represents a tuple literal in Python, such as '(1, 2, 3)'.
-type Tuple struct {
-	Token    token.Token // The token.Token.LPAREN token.Token
-	Elements []*Node     // The expressions that represent the elements of the tuple
+func (p *Parser) expectPeek(t sasttoken.TokenType) bool {
+	if p.peekToken.Type == t {
+		p.nextToken()
+		return true
+	} else {
+		return false
+	}
 }
 
-type Dictionary struct {
-	Token token.Token // The token.Token.LBRACE token.Token
-	Pairs [][2]*Node  // The key-value pairs of the dictionary
-}
+func (p *Parser) parsePrefixExpression() (*Expression, error) {
+	operator := p.curToken.Literal
+	p.nextToken()
+	right, err := p.parseExpression(PREFIX)
+	if err != nil {
+		return nil, err
+	}
 
-type Lambda struct {
-	Token  token.Token // The token.Token.LAMBDA token.Token
-	Params []*Node     // The lambda function parameters
-	Body   *Node       // The lambda function body (an expression)
+	prefix := &PrefixExpression{Operator: operator, Right: right}
+	node := Expression(prefix)
+	return &node, nil
 }
-
-type ListComp struct {
-	Token token.Token // The token.Token.LBRACKET token.Token
-	Expr  *Node       // The main expression of the list comprehension
-	Comps []*Node     // The comprehension clauses (for, if)
-}
-
-type DictComp struct {
-	Token token.Token // The token.Token.LBRACE token.Token
-	Key   *Node       // The key expression of the dict comprehension
-	Value *Node       // The value expression of the dict comprehension
-	Comps []*Node     // The comprehension clauses (for, if)
-}
-
-type SetComp struct {
-	Token token.Token // The token.Token.LBRACE token.Token
-	Expr  *Node       // The main expression of the set comprehension
-	Comps []*Node     // The comprehension clauses (for, if)
-}
-
-type Generator struct {
-	Token token.Token // The token.Token.LPAREN token.Token
-	Expr  *Node       // The main expression of the generator
-	Comps []*Node     // The comprehension clauses (for, if)
-}
-
-type Await struct {
-	Token token.Token // The token.Token.AWAIT token.Token
-	Value *Node       // The expression representing the value to await
-}
-
-type FormattedStr struct {
-	Token  token.Token // The token.Token.F_STRING token.Token
-	Values []*Node     // The expressions representing the values to format
-}
-
-func (i *Identifier) expressionNode()        {}
-func (il *IntegerLiteral) expressionNode()   {}
-func (fl *FloatLiteral) expressionNode()     {}
-func (sl *StringLiteral) expressionNode()    {}
-func (bl *BooleanLiteral) expressionNode()   {}
-func (nl *NoneLiteral) expressionNode()      {}
-func (ue *UnaryExpression) expressionNode()  {}
-func (be *BinaryExpression) expressionNode() {}
-func (a *Attribute) expressionNode()         {}
-func (s *Subscript) expressionNode()         {}
-func (l *List) expressionNode()              {}
-func (t *Tuple) expressionNode()             {}
-func (d *Dictionary) expressionNode()        {}
-func (g *Generator) expressionNode()         {}
-func (a *Await) expressionNode()             {}
-func (f *FormattedStr) expressionNode()      {}
-func (l *ListComp) expressionNode()          {}
-func (d *DictComp) expressionNode()          {}
-func (s *SetComp) expressionNode()           {}
-func (l *Lambda) expressionNode()            {}

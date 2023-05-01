@@ -1,10 +1,6 @@
 package rules
 
 import (
-	"net"
-	"net/url"
-	"strings"
-
 	"github.com/coiloffaraday/python_sast/parser"
 	"github.com/coiloffaraday/python_sast/reporter"
 )
@@ -13,75 +9,47 @@ type RuleSSRF struct {
 	reporter *reporter.Reporter
 }
 
-// NewRuleSSRF 创建并返回一个新的RuleSSRF实例
 func NewRuleSSRF(reporter *reporter.Reporter) *RuleSSRF {
-	return &RuleSSRF{
-		reporter: reporter,
+	return &RuleSSRF{reporter: reporter}
+}
+
+func (r *RuleSSRF) CheckForSSRF(node parser.Node) {
+	// 递归地检查所有子节点
+	for _, child := range node.GetChildren() {
+		r.CheckForSSRF(child)
+	}
+
+	// 如果当前节点是一个函数调用
+	if callExpr, ok := node.(*parser.CallExpression); ok {
+		// 检查函数名称是否与潜在的 SSRF 函数匹配
+		if r.isSSRFFunction(callExpr.Function) {
+			// 如果匹配，则报告 SSRF
+			r.reporter.AddReportItem(reporter.ReportItem{
+				Filename:    callExpr.Token.FilePath,
+				Line:        callExpr.Token.Line,
+				Column:      callExpr.Token.Column,
+				RuleName:    "SSRF",
+				Description: "Possible SSRF detected",
+			})
+		}
 	}
 }
 
-// Apply 应用规则，并将结果添加到报告中
-func (r *RuleSSRF) Apply(ast *parser.ast.Node) {
-	r.CheckCondition(ast)
-}
-
-// CheckCondition 检查SSRF的存在并报告
-func (r *RuleSSRF) CheckCondition(ast *parser.ast.Node) {
-	urlNodes := ast.FindAll(parser.NodeTypeURL)
-
-	for _, node := range urlNodes {
-		urlStr := node.Value()
-
-		// 解析URL，检查是否为远程地址
-		u, err := url.Parse(urlStr)
-		if err != nil {
-			continue
-		}
-		if u.Scheme == "" {
-			u.Scheme = "http"
-		}
-		if u.Hostname() == "" {
-			continue
-		}
-		hostIPs, err := net.LookupIP(u.Hostname())
-		if err != nil {
-			continue
-		}
-		hostIsLocal := false
-		for _, hostIP := range hostIPs {
-			if hostIP.IsLoopback() || hostIP.IsLinkLocalUnicast() || hostIP.IsLinkLocalMulticast() {
-				hostIsLocal = true
-				break
-			}
-		}
-		if hostIsLocal {
-			continue
-		}
-
-		// 检查协议是否为http或https
-		if u.Scheme != "http" && u.Scheme != "https" {
-			r.reporter.AddIssue(node.Position().Filename, node.Position().Line, "Potential SSRF vulnerability: "+urlStr)
-			continue
-		}
-
-		// 检查端口是否在安全范围内
-		port := u.Port()
-		if port == "" {
-			if u.Scheme == "http" {
-				port = "80"
-			} else {
-				port = "443"
-			}
-		}
-		if port != "80" && port != "443" && port != "8000" && port != "8080" && port != "8443" {
-			r.reporter.AddIssue(node.Position().Filename, node.Position().Line, "Potential SSRF vulnerability: "+urlStr)
-			continue
-		}
-
-		// 检查路径是否为可信任的
-		if strings.HasPrefix(u.Path, "/") {
-			continue
-		}
-		r.reporter.AddIssue(node.Position().Filename, node.Position().Line, "Potential SSRF vulnerability: "+urlStr)
+// isSSRFFunction 检查给定的函数名是否与潜在的 SSRF 函数匹配
+func (r *RuleSSRF) isSSRFFunction(functionName string) bool {
+	// 在这里，我们添加一些可能导致 SSRF 的函数名
+	ssrfFunctions := []string{
+		"requests.get",
+		"requests.post",
+		"requests.options",
+		// 添加更多潜在的 SSRF 函数
 	}
+
+	for _, ssrfFunc := range ssrfFunctions {
+		if functionName == ssrfFunc {
+			return true
+		}
+	}
+
+	return false
 }
